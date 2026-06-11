@@ -21,5 +21,7 @@ root_agent = LlmAgent(
     model=os.environ.get("CARTO_MODEL", "gemini-3.5-flash"),
     description="Naive chat-with-your-database baseline (no schema awareness).",
     instruction=prompts.NAIVE,
-    tools=[mongo_toolset(["find", "aggregate", "count"])],
+    # aggregate only: no find/collection-schema, so it cannot peek at documents
+    # and discover the drift it is supposed to be blind to.
+    tools=[mongo_toolset(["aggregate"])],
 )

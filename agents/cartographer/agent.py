@@ -81,7 +81,14 @@ surgeon = LlmAgent(
     model=MODEL,
     description="Proposes hazard repairs; executes only after explicit approval.",
     instruction=prompts.SURGEON.format(db=DB, atlas=prompts.ATLAS),
-    tools=[mongo_toolset(["update-many", "create-index", "find"], read_only=False)],
+    # aggregate is included for $match/$set/$merge migrations: the MCP
+    # update-many tool rejects pipeline updates, and classic updates cannot
+    # derive a new value from the field itself.
+    tools=[
+        mongo_toolset(
+            ["update-many", "create-index", "find", "aggregate"], read_only=False
+        )
+    ],
 )
 
 root_agent = LlmAgent(

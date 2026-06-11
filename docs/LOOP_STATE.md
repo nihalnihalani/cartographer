@@ -1,12 +1,9 @@
 # LOOP_STATE — iteration ledger
 
-## BLOCKED-ON-HUMAN (everything else is done or in flight)
-1. **GOOGLE_API_KEY has no quota** (status 2026-06-11 ~22:5x): a key was added to `.env`
-   and authenticates, but every call returns
-   `429 RESOURCE_EXHAUSTED: "Your prepayment credits are depleted"` —
-   fix billing at https://ai.studio/projects (or paste a key from a project with quota).
-   Needed for: live demo flow in `adk web agents` and the deployed service. All keyless
-   work (seed, tests, agent construction, UI boot) is verified green without it.
+## BLOCKED-ON-HUMAN
+1. ~~GOOGLE_API_KEY~~ **RESOLVED 2026-06-12 ~01:0x** — replacement key works;
+   `gemini-3.5-flash` smoke test returns OK and the FULL live demo flow is verified
+   (see Iteration 3 below).
 2. **Atlas connection string is still the placeholder** (`USER:PASS@cluster0.xxxxx` —
    DNS lookup fails). Cloud Run cannot reach the local Docker mongo. Set a real
    `MDB_MCP_CONNECTION_STRING=mongodb+srv://...` in `.env`, re-run
@@ -25,7 +22,8 @@
 - [x] 1. Seed deterministic + ground truth — iter 1
 - [x] 2. Agent tree + MCP wiring (verifier #1 ran post-commit) — iter 1
 - [x] 3. pytest green keyless: 20 passed — iter 1
-- [x] 4. adk web boots; `/list-apps` = ["cartographer","naive_agent"]; live LLM flow blocked on key
+- [x] 4. adk web boots; `/list-apps` = ["cartographer","naive_agent"]; FULL live demo flow
+       verified end-to-end 2026-06-12 (see Iteration 3 proof)
 - [x] 5. Deploy: blocked on .env (exact command above); script + Dockerfile prepared, syntax-checked
 - [x] 6. README quickstart rewritten to real commands; fresh-clone dry run = verifier #2
 - [x] 7. SUBMISSION.md + DEMO_SCRIPT.md synced to real numbers; URLs await deploy/video
@@ -70,6 +68,35 @@ history secret-scan clean. FINDINGS → most were pre-02cf6d8 staleness (already
 remainder fixed in final commit: SETUP.md §2 now installs from requirements.txt,
 README docker command made idempotent (`docker start || docker run`), personal
 account/project ids redacted from this ledger.
+
+## Iteration 3 — LIVE demo flow verified (2026-06-12, replacement API key)
+Driven through the ADK API (`POST /run`) against local Mongo, all four demo shots:
+1. **The Lie** — naive_agent: "What was total revenue?" → ran plain
+   `{$sum: "$price"}` → answered **$1,096,236.79** (planted wrong number, to the cent).
+2. **The Excavation** — cartographer: "Map this database." → 55 tool calls;
+   `_schema_atlas` written: 3 collection docs + manifest, drift dated ~2024-03;
+   all 3 docs pass `validate_atlas_doc` → VALID.
+3. **The Truth** — same question → navigator consulted atlas, answered
+   **$1,542,667.68** with naive-vs-defensive table ("$446,430.89 / 28.9% damage
+   avoided") + hazard citations and the defensive `$convert` pipeline shown.
+4. **The Repair** — "Fix the price drift permanently." → proposal card
+   (filter, 3,625-doc estimate, rollback note, zero writes during proposal —
+   DB checked) → "approve" → $match/$set/$merge migration → DB verified:
+   0 string prices remain, plain `$sum` now returns $1,542,667.68.
+After verification the DB was RE-SEEDED to restore the drifted demo state
+(3,625 string prices back; `_schema_atlas` dropped) so the video starts clean.
+
+Two live-run fixes shipped (caught only by running against the real model):
+- **naive_agent was too smart**: it `find`-peeked 5 docs, saw string prices, and
+  added `$toDouble` on its own → returned the TRUE number, killing the demo hook.
+  Fix: tool_filter reduced to `["aggregate"]` (cannot peek) + instruction gives
+  documented field names only and forbids conversions. Re-tested → wrong number
+  reproduced exactly.
+- **Surgeon's update-many failed**: the MCP tool rejects pipeline-style updates
+  (`MCP error -32602: expected object, received array`) and classic updates can't
+  compute `$toDouble` from the field. Fix: surgeon executes value-transformations
+  via `aggregate` `$match/$set/$merge` (write instance); update-many reserved for
+  static-value fixes. Re-tested → 3,625 docs migrated, surgeon self-verified 0 left.
 
 ## HANDOFF — the only remaining work is human-only
 1. Put real `GOOGLE_API_KEY` (AI Studio) + Atlas `MDB_MCP_CONNECTION_STRING` in `.env`.
