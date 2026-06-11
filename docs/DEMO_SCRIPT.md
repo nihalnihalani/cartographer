@@ -16,12 +16,12 @@
 
 **Screen:** ADK web UI, agent = `naive_agent`.
 
-**Type:** `What was total revenue in 2025?`
+**Type:** `What was total revenue?`
 
-**It answers:** `$148,200` *(wrong — ignores 5,840 string-typed prices)*
+**It answers:** `$1,096,236.79` *(wrong — ignores 3,625 string-typed prices)*
 
 **Voiceover:**
-> "This is a standard 'chat with your database' agent on a real-world e-commerce database. Total revenue 2025? $148,200. Confident, instant… and wrong by thirty percent. No error was thrown. This bug ships in production AI systems today — because the agent doesn't actually know what's in the database."
+> "This is a standard 'chat with your database' agent on a real-world e-commerce database. Total revenue? $1,096,236.79. Confident, instant… and wrong by twenty-nine percent. No error was thrown. This bug ships in production AI systems today — because the agent doesn't actually know what's in the database."
 
 ### Shot 2 — The Excavation (0:30–1:30)
 
@@ -43,27 +43,27 @@
 
 **Screen:** back to ADK UI, agent = `cartographer`.
 
-**Type:** `What was total revenue in 2025?`
+**Type:** `What was total revenue?`
 
-**It answers:** `$211,540` + a **Hazard Citations** block:
-- `H-ORD-001 TYPE_DRIFT — converted 5,840 string prices ($toDouble with onError guard)`
+**It answers:** `$1,542,667.68` + a **Hazard Citations** block:
+- `H-ORD-001 TYPE_DRIFT — converted 3,625 string prices ($toDouble with onError guard)`
 - `H-CUS-002 ALIAS_FIELDS — unioned user_id/userId`
 
-**Show:** side-by-side moment — scroll so the naive `$148,200` and Cartographer's `$211,540` are both visible, or use a split screen card.
+**Show:** side-by-side moment — scroll so the naive `$1,096,236.79` and Cartographer's `$1,542,667.68` are both visible, or use a split screen card.
 
 **Voiceover:**
-> "Same question to Cartographer. It consults the atlas first, then writes a defensive pipeline — converting every string-typed price, handling the field alias. Real answer: $211,540. The naive agent missed thirty percent of revenue — silently. And Cartographer shows its receipts: every hazard it defended against, and how many documents were affected."
+> "Same question to Cartographer. It consults the atlas first, then writes a defensive pipeline — converting every string-typed price, handling the field alias. Real answer: $1,542,667.68. The naive agent missed twenty-nine percent of revenue — silently. And Cartographer shows its receipts: every hazard it defended against, and how many documents were affected."
 
 ### Shot 4 — The Repair (2:15–2:50)
 
 **Type:** `Fix the price drift permanently.`
 
-**Show:** the Surgeon's proposal card — operation, filter, `~5,840 documents affected`, rollback note — then the **approval prompt**. Click approve. Show the success message + atlas version bump to v2.
+**Show:** the Surgeon's proposal card — operation, filter, `~3,625 documents affected`, rollback note — then the **approval prompt**. Click approve. Show the success message + atlas version bump to v2.
 
-**Optional capper (if time):** switch to `naive_agent`, re-ask the revenue question → now it gets `$211,540` too.
+**Optional capper (if time):** switch to `naive_agent`, re-ask the revenue question → now it gets `$1,542,667.68` too.
 
 **Voiceover:**
-> "Cartographer can also close the loop. The Surgeon agent proposes a migration — exactly which documents, exactly what changes, fully reversible — but it cannot execute without human approval. I approve… 5,840 documents normalized, atlas updated. Now even the naive agent gets the right answer."
+> "Cartographer can also close the loop. The Surgeon agent proposes a migration — exactly which documents, exactly what changes, fully reversible — but it cannot execute without human approval. I approve… 3,625 documents normalized, atlas updated. Now even the naive agent gets the right answer."
 
 ### Shot 5 — Impact Card (2:50–3:00)
 
@@ -79,9 +79,9 @@
 
 ## Exact prompts (copy-paste during recording)
 
-1. `What was total revenue in 2025?` (naive agent)
+1. `What was total revenue?` (naive agent)
 2. `Map this database.`
-3. `What was total revenue in 2025?` (cartographer)
+3. `What was total revenue?` (cartographer)
 4. `Fix the price drift permanently.`
 
 ## Recording tips

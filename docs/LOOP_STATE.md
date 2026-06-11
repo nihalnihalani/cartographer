@@ -1,49 +1,49 @@
 # LOOP_STATE — iteration ledger
 
-## BLOCKED-ON-HUMAN
-- **GOOGLE_API_KEY missing** — no `.env`; live agent runs (adk web demo, deployed smoke test)
-  need a Google AI Studio key in `.env`. Everything keyless-testable proceeds.
-- **No Atlas connection string** — using local Docker Mongo (`docker run -d --name carto-mongo
-  -p 27017:27017 mongo:7`, `mongodb://localhost:27017`). To swap to Atlas: set
-  `MDB_MCP_CONNECTION_STRING` in `.env` and re-run the seed. Vector index on the atlas
-  summaries requires Atlas; local Mongo degrades to direct `find` (per BUILD_PLAN fallback).
-- **gcloud auth** — not yet verified; Cloud Run deploy may need `gcloud auth login`.
+## BLOCKED-ON-HUMAN (everything else is done or in flight)
+1. **GOOGLE_API_KEY** — create `.env` from `.env.example` with a Google AI Studio key.
+   Needed for: live demo flow in `adk web agents` and the deployed service. All keyless
+   work (seed, tests, agent construction, UI boot) is verified green without it.
+2. **Atlas connection string** — Cloud Run cannot reach the local Docker mongo.
+   Set `MDB_MCP_CONNECTION_STRING=mongodb+srv://...` in `.env`, re-run
+   `python seed/seed_messy_db.py`, then deploy with ONE command:
+   ```
+   ./deploy/deploy_cloud_run.sh
+   ```
+   (gcloud IS authed — account nihal.nihalani@gmail.com, project sage-inn-298821 —
+   so only `.env` blocks the deploy. Script builds a custom Python+Node image because
+   the stock ADK image can't run the Node-based MongoDB MCP server, and `adk deploy
+   cloud_run` ships only one agent folder while the demo needs both agents.)
+3. **Record demo video + Devpost submit** — per docs/DEMO_SCRIPT.md (numbers now real).
 
-## Milestones (from /loop goal)
-- [x] 1. Seed script deterministic + ground truth — DONE iter 1
-- [ ] 2. 6 ADK agents + naive baseline, MCP wiring
-- [ ] 3. pytest suite green (keyless)
-- [ ] 4. adk web boots, full demo flow
-- [ ] 5. Cloud Run deploy OR documented blocker
-- [ ] 6. README quickstart verified, .env.example complete
-- [ ] 7. SUBMISSION.md real numbers/URLs
+## Milestones
+- [x] 1. Seed deterministic + ground truth — iter 1
+- [x] 2. Agent tree + MCP wiring (verifier #1 ran post-commit) — iter 1
+- [x] 3. pytest green keyless: 20 passed — iter 1
+- [x] 4. adk web boots; `/list-apps` = ["cartographer","naive_agent"]; live LLM flow blocked on key
+- [x] 5. Deploy: blocked on .env (exact command above); script + Dockerfile prepared, syntax-checked
+- [x] 6. README quickstart rewritten to real commands; fresh-clone dry run = verifier #2
+- [x] 7. SUBMISSION.md + DEMO_SCRIPT.md synced to real numbers; URLs await deploy/video
 
-## Iteration 1 (start epoch 1781195394; hard stop epoch 1781198994)
-**Shipped:** env setup (Python 3.12 venv via uv, google-adk 2.2.0, pymongo, pytest; Docker
-mongo:7 as `carto-mongo` on :27017), `seed/seed_messy_db.py`, pinned `requirements.txt`.
+## Ground truth (canonical, printed by seed, proven by tests)
+- orders 12,483 / customers 5,000 / products 1,000 in `carto_demo`
+- naive total revenue **$1,096,236.79** vs true **$1,542,667.68** (3,625 string prices = 29.0%)
+- 2024-only: naive $496,153.63 vs true $557,280.03
+- Demo question: **"What was total revenue?"**
 
-**Proof (seed run twice, diffed):**
-```
-exit=0
-DETERMINISTIC: identical output
-{
-  "orders": 12483,
-  "string_priced_orders": 3625,
-  "revenue_all_time_true": 1542667.68,
-  "revenue_all_time_naive": 1096236.79,
-  "revenue_2024_true": 557280.03,
-  "revenue_2024_naive": 496153.63,
-  "string_priced_2024": 492
-}
-All-time:  naive $1,096,236.79  vs  true $1,542,667.68
-  string-typed prices overall:         3625 (29.0%)
-```
+## Iteration 1 proof log
+- Seed determinism: ran twice, `diff` clean → "DETERMINISTIC: identical output", exit=0
+- Agent construction (keyless): tree cartographer→[expedition[surveyors(3)→historian→mapmaker],
+  navigator, surgeon] + naive_agent; per-agent tool_filters asserted; `--readOnly` on all
+  MCP instances except mapmaker (create/insert/index only) + surgeon (gated)
+- pytest: `20 passed in 1.25s` with GOOGLE_API_KEY unset; pipeline tests ran live against
+  seeded Mongo (naive pipeline == naive GT, defensive pipeline == true GT to the cent)
+- adk web: `curl /list-apps` → `["cartographer","naive_agent"]`, `/dev-ui/` → 200
+- Design deviations from docs (intentional): drift demo question is all-time revenue (not
+  2025 — per ARCHITECTURE the strings predate 2024-03, so 2025 has none); Mapmaker holds
+  a write MCP instance filtered to atlas-authoring tools (spec gives it write tools but
+  also says "writes only for Surgeon" — least-privilege resolution).
 
-**Design note:** DEMO_SCRIPT.md's aspirational numbers ($148,200/$211,540, 2025) conflicted
-with ARCHITECTURE.md (price string *before* 2024-03 → 2025 has no strings). ARCHITECTURE
-is the anchor spec, so the seed follows it; the headline demo question is now
-**"What was total revenue?" (all-time): naive $1,096,236.79 vs true $1,542,667.68 (29% missing)**.
-DEMO_SCRIPT.md + SUBMISSION.md numbers to be synced in milestone 7.
-
-**Next:** Milestone 2 — agent package per ARCHITECTURE §3/§5 (root Cartographer, Expedition
-Sequential[Parallel surveyors → Historian → Mapmaker], Navigator, Surgeon + naive_agent).
+## Known cosmetic issues
+- ADK 2.2.0 deprecation warnings: ParallelAgent/SequentialAgent → "Workflow". Harmless;
+  spec names these constructs.

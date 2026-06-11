@@ -17,7 +17,7 @@ Built for the **Google Cloud Rapid Agent Hackathon** — MongoDB partner track.
 
 Every "chat with your database" agent works the same way: sample one document → guess the schema → generate a query → run it. This works in demos and **fails in production**, because real MongoDB databases are schemaless in practice, not just in theory:
 
-- **Type drift** — `price` was a string (`"49.99"`) for two years, then new docs store a number (`49.99`). `{$sum: "$price"}` **silently drops 30% of revenue**. No error. Just a confidently wrong answer.
+- **Type drift** — `price` was a string (`"49.99"`) for two years, then new docs store a number (`49.99`). `{$sum: "$price"}` **silently drops 29% of revenue**. No error. Just a confidently wrong answer.
 - **Naming drift** — `user_id`, `userId`, and `uid` coexist across eras of the codebase.
 - **Missing fields** — `email` exists in 88% of docs; a `$match` on it silently excludes 12% of customers.
 - **Shape drift** — `address` is a string in old docs, an object `{street, city}` in new ones.
@@ -35,9 +35,11 @@ So we gave the agent an archaeologist.
 
 ## The Money Shot
 
-Ask a naive agent: *"What was total revenue in 2025?"* → **$148,200** — confidently wrong (it ignored 5,840 string-typed prices).
+Ask a naive agent: *"What was total revenue?"* → **$1,096,236.79** — confidently wrong (it silently ignored 3,625 string-typed prices).
 
-Ask Cartographer the same question → **$211,540** — *"I converted 5,840 string-typed prices and unioned the `userId` alias. The naive query missed 30% of revenue."*
+Ask Cartographer the same question → **$1,542,667.68** — *"I converted 3,625 string-typed prices (`$convert` with an `onError` guard). The naive query missed 29% of revenue."*
+
+Every number is deterministic — `seed/seed_messy_db.py` prints the ground truth, and the test suite proves the naive pipeline loses exactly that 29%.
 
 That delta is the product.
 
@@ -69,13 +71,13 @@ That delta is the product.
 | Cartographer (root) | `LlmAgent` + `sub_agents` | `list-databases` | Routes requests to the right crew |
 | Surveyors | `ParallelAgent` | `collection-schema`, `aggregate`, `count` | Stratified sampling → field coverage + type histograms |
 | Historian | `LlmAgent` | `aggregate`, `find` | Dates each drift variant, detects alias pairs |
-| Mapmaker | `LlmAgent` | `create-collection`, `insert-many`, `create-index` | Writes the vector-embedded `_schema_atlas` collection |
+| Mapmaker | `LlmAgent` | `create-collection`, `insert-many`, `create-index` | Writes the versioned `_schema_atlas` collection |
 | Navigator | `LlmAgent` | `find`, `aggregate`, `explain` | Hazard-aware, defensive query generation with citations |
 | Surgeon | `LlmAgent` + HITL | `update-many`, `create-index` | Migration/index proposals — executes only after approval |
 
 **Design choices judges should notice:**
 - **`tool_filter` everywhere** — each agent sees only the 3–5 MCP tools it needs. Surveyors can't write. Only the Surgeon can `update-many`, and only after human approval.
-- **The map lives in the territory** — the Schema Atlas is itself a MongoDB collection with vector embeddings; the partner tech is the product's memory, not a side-call.
+- **The map lives in the territory** — the Schema Atlas is itself a MongoDB collection (`_schema_atlas`), versioned and queryable; the partner tech is the product's memory, not a side-call. (On Atlas, the natural-language summaries can carry a vector index; on local Mongo it degrades gracefully to direct `find`.)
 - **Read-only by default** — the MCP server runs with `--readOnly` for excavation and navigation; writes are a separately-gated path.
 - **Receipts** — the Navigator can show `explain` output proving its pipeline touched every document variant.
 
@@ -84,25 +86,34 @@ That delta is the product.
 - **Google Cloud Agent Builder / ADK 2.x** (`google-adk`) — multi-agent orchestration (`SequentialAgent`, `ParallelAgent`, HITL tool confirmation)
 - **Gemini 3.5 Flash** — reasoning for all six agents
 - **MongoDB Atlas** (M0) + **official MongoDB MCP server** (`mongodb-mcp-server`, stdio) — all database superpowers
-- **Cloud Run** — hosted deployment via `adk deploy cloud_run --with_ui`
+- **Cloud Run** — hosted deployment via `deploy/deploy_cloud_run.sh` (custom image: the stock ADK image lacks the Node.js runtime the MCP server needs)
 
 ## Quickstart
 
 ```bash
-# 1. Prereqs: Python 3.11+, Node 20+ (for npx), a MongoDB Atlas M0 cluster (or local mongod)
-pip install google-adk
+# 1. Prereqs: Python 3.11+, Node 20+ (for npx), and MongoDB —
+#    either an Atlas M0 cluster, or a local one:
+docker run -d --name carto-mongo -p 27017:27017 mongo:7
+
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
 
 # 2. Configure
 cp .env.example .env   # set GOOGLE_API_KEY + MDB_MCP_CONNECTION_STRING
+set -a; source .env; set +a
 
-# 3. Seed the deliberately-messy demo database
+# 3. Seed the deliberately-messy demo database (prints the ground-truth numbers)
 python seed/seed_messy_db.py
 
-# 4. Run locally with the ADK dev UI
-adk web
+# 4. (optional) prove the drift math without any LLM
+pytest tests/ -q
 
-# 5. Deploy a hosted URL
-adk deploy cloud_run --project=$GOOGLE_CLOUD_PROJECT --region=us-central1 --with_ui .
+# 5. Run the demo UI — pick `naive_agent`, ask "What was total revenue?",
+#    then pick `cartographer`: "Map this database." → same question → "Fix the price drift permanently."
+adk web agents
+
+# 6. Deploy a hosted URL (needs Atlas + billing-enabled GCP project)
+./deploy/deploy_cloud_run.sh
 ```
 
 > Full setup details: [docs/SETUP.md](docs/SETUP.md)

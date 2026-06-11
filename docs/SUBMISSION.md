@@ -26,7 +26,7 @@ Cartographer is a multi-agent system that:
 4. **Navigates** — when you ask a question, the Navigator consults the atlas first, then generates a *defensive* aggregation pipeline (`$convert` guards, `$ifNull` defaults, alias unions) and answers **with hazard citations**: exactly what it defended against and how many documents were affected.
 5. **Repairs, with consent** — a Surgeon agent proposes normalization migrations and indexes, but cannot execute without explicit human approval.
 
-In our demo database, a naive agent reports 2025 revenue as **$148,200**. Cartographer reports **$211,540** — and explains that the naive query silently dropped 5,840 string-typed prices: 30% of revenue, gone without an error.
+In our demo database, a naive agent reports total revenue as **$1,096,236.79**. Cartographer reports **$1,542,667.68** — and explains that the naive query silently dropped 3,625 string-typed prices: 29% of revenue, gone without an error. (Both numbers are deterministic: `seed/seed_messy_db.py` prints the ground truth, and the pytest suite proves the pipelines reproduce it.)
 
 ## How we built it
 
@@ -34,7 +34,7 @@ In our demo database, a naive agent reports 2025 revenue as **$148,200**. Cartog
 - **Gemini 3.5 Flash** powers every agent's reasoning.
 - **MongoDB MCP server** (official, via `npx`, stdio transport) provides every database capability: `collection-schema`, `aggregate`, `count`, `find`, `explain`, `create-collection`, `insert-many`, `create-index`, `update-many`. We run **two MCP instances** — read-only for excavation/navigation, write-enabled for the Surgeon only — and use ADK's `tool_filter` so each agent sees just the 3–5 tools it needs (least privilege, minimal token bloat).
 - **MongoDB Atlas** hosts the data; the Schema Atlas itself is a MongoDB collection with vector-embedded summaries — the partner technology is the product's memory, not a side-call.
-- **Cloud Run** hosts the live deployment via `adk deploy cloud_run --with_ui`.
+- **Cloud Run** hosts the live deployment via `deploy/deploy_cloud_run.sh` — a custom image (Python + Node.js), because the MongoDB MCP server is a Node subprocess the stock ADK image can't run.
 
 ## Challenges we ran into
 
@@ -44,7 +44,7 @@ In our demo database, a naive agent reports 2025 revenue as **$148,200**. Cartog
 
 ## Accomplishments we're proud of
 
-- A demo where the *wrongness of the status quo is measurable on screen* — $148K vs $211K on the same database.
+- A demo where the *wrongness of the status quo is measurable on screen* — $1.10M vs $1.54M on the same database, reproducible to the cent.
 - Hazard citations: every answer shows its defensive work, turning a black-box query into an auditable one.
 - Least-privilege MCP design (`tool_filter` per agent, read-only by default).
 
