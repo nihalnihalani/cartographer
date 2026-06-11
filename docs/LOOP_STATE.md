@@ -1,11 +1,15 @@
 # LOOP_STATE — iteration ledger
 
 ## BLOCKED-ON-HUMAN (everything else is done or in flight)
-1. **GOOGLE_API_KEY** — create `.env` from `.env.example` with a Google AI Studio key.
+1. **GOOGLE_API_KEY has no quota** (status 2026-06-11 ~22:5x): a key was added to `.env`
+   and authenticates, but every call returns
+   `429 RESOURCE_EXHAUSTED: "Your prepayment credits are depleted"` —
+   fix billing at https://ai.studio/projects (or paste a key from a project with quota).
    Needed for: live demo flow in `adk web agents` and the deployed service. All keyless
    work (seed, tests, agent construction, UI boot) is verified green without it.
-2. **Atlas connection string** — Cloud Run cannot reach the local Docker mongo.
-   Set `MDB_MCP_CONNECTION_STRING=mongodb+srv://...` in `.env`, re-run
+2. **Atlas connection string is still the placeholder** (`USER:PASS@cluster0.xxxxx` —
+   DNS lookup fails). Cloud Run cannot reach the local Docker mongo. Set a real
+   `MDB_MCP_CONNECTION_STRING=mongodb+srv://...` in `.env`, re-run
    `python seed/seed_messy_db.py`, then deploy with ONE command:
    ```
    ./deploy/deploy_cloud_run.sh
