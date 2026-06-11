@@ -93,7 +93,7 @@ That delta is the product.
 ```bash
 # 1. Prereqs: Python 3.11+, Node 20+ (for npx), and MongoDB —
 #    either an Atlas M0 cluster, or a local one:
-docker run -d --name carto-mongo -p 27017:27017 mongo:7
+docker start carto-mongo 2>/dev/null || docker run -d --name carto-mongo -p 27017:27017 mongo:7
 
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt

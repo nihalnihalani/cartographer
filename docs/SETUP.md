@@ -31,7 +31,7 @@ Note: vector search on atlas summaries degrades gracefully to exact lookup when 
 git clone https://github.com/nihalnihalani/cartographer
 cd cartographer
 python -m venv .venv && source .venv/bin/activate
-pip install google-adk
+pip install -r requirements.txt   # google-adk + pymongo (seed) + pytest, pinned
 
 cp .env.example .env
 ```
