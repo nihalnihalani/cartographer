@@ -5,7 +5,7 @@
 ## Pre-flight checklist
 
 - [ ] Seeded database up (`python seed/seed_messy_db.py` — note the printed ground-truth numbers)
-- [ ] `adk web` running, both the naive baseline agent and Cartographer selectable
+- [ ] `adk web agents` running, both the naive baseline agent and Cartographer selectable
 - [ ] MongoDB Atlas UI open in a second tab (collections view)
 - [ ] Browser zoom ~125% so text is readable in the recording
 - [ ] Do one full dry run before recording

@@ -66,15 +66,18 @@ python seed/seed_messy_db.py
 This creates the `carto_demo` database (orders / customers / products) with **planted, dated schema drift** and prints the ground-truth numbers:
 
 ```
-TRUE 2025 revenue:   $211,540
-NAIVE 2025 revenue:  $148,200   (what a drift-blind $sum returns)
-string-typed prices: 5,840 docs (drift boundary 2024-03)
+Demo question: 'What was total revenue?'
+  naive agent (ignores string prices): $1,096,236.79
+  correct (defensive pipeline):        $1,542,667.68
+  string-typed prices overall:         3625 (29.0%, all before the 2024-03 drift boundary)
 ```
+
+Run it twice — the output is byte-identical (seeded RNG, deterministic ObjectIds).
 
 ## 4. Run locally
 
 ```bash
-adk web
+adk web agents
 ```
 
 Open http://localhost:8000, pick an agent:
@@ -90,28 +93,21 @@ gcloud auth login
 gcloud config set project YOUR_PROJECT
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com
 
-adk deploy cloud_run \
-  --project=YOUR_PROJECT \
-  --region=us-central1 \
-  --service_name=cartographer \
-  --with_ui \
-  .
+./deploy/deploy_cloud_run.sh   # reads GOOGLE_API_KEY + MDB_MCP_CONNECTION_STRING from .env
 ```
 
-- Answer `y` to allow unauthenticated access (judges need the URL).
-- Set env vars on the service (connection string + API key):
-```bash
-gcloud run services update cartographer --region=us-central1 \
-  --set-env-vars=GOOGLE_API_KEY=...,GOOGLE_GENAI_USE_VERTEXAI=FALSE,MDB_MCP_CONNECTION_STRING=...
-```
-- Atlas Network Access must allow `0.0.0.0/0` for Cloud Run egress (hackathon demo posture).
+- The script uses the repo's custom Dockerfile (Python + Node.js) rather than
+  `adk deploy cloud_run`: the stock ADK image has no Node runtime for the MongoDB
+  MCP server, and `adk deploy` ships a single agent folder while the demo needs
+  both `cartographer` and `naive_agent` in one UI.
+- `MDB_MCP_CONNECTION_STRING` must be an Atlas URI (Cloud Run can't reach a local Docker mongo), and Atlas Network Access must allow `0.0.0.0/0` for Cloud Run egress (hackathon demo posture).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | MCP server exits immediately | Check `MDB_MCP_CONNECTION_STRING` quoting; test with `mongosh "$CONN_STRING"` |
-| `npx` not found in deployed container | Ensure Node is in the runtime image (ADK Cloud Run images include it); else switch MCP launch to the Docker variant |
+| `npx` not found in deployed container | Deploy with the repo's `Dockerfile` (via `deploy/deploy_cloud_run.sh`) — it installs Node 22 and pre-bakes `mongodb-mcp-server` |
 | Gemini 404 / model not found | Use `gemini-3.5-flash`; fall back `gemini-3.1-flash-lite`. Never `gemini-3-pro-preview` (discontinued 2026-03). |
 | Empty survey results | Re-run the seed script; confirm you're pointing at `carto_demo` |
-| HITL approval never triggers | Check the Surgeon uses the write-enabled MCP instance and tool confirmation is wired; fallback two-turn confirm is in `agents/surgeon.py` |
+| HITL approval never triggers | The Surgeon uses a two-turn confirm enforced by its instruction (`agents/cartographer/prompts.py`, `SURGEON`): it proposes first and only executes when your next message is an explicit "approve" |

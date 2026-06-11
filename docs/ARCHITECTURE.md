@@ -73,7 +73,7 @@ Runs three stages in order. Output of each stage lands in session state for the 
 - **Hard rule in instruction:** never generate a pipeline for a field without first checking the atlas entry for that field.
 
 ### 3.4 Surgeon (`LlmAgent` + HITL)
-- **MCP tools:** `update-many`, `create-index` (write-enabled MCP instance)
+- **MCP tools:** `update-many`, `create-index`, `find` (write-enabled MCP instance; `find` lets it read hazards and verify filters before proposing)
 - **Job:** convert HIGH hazards into **repair proposals**: a concrete migration pipeline (e.g., `update-many` with `$set: {price: {$toDouble: "$price"}}` filtered to string-typed docs), a doc-count estimate, and a rollback note.
 - **Gate:** execution requires explicit human approval via ADK's tool-confirmation flow (fallback: a two-turn explicit confirm). The proposal card shows: operation, filter, affected count, reversibility.
 - After execution: re-survey the affected field and update the Schema Atlas (atlas version bump).
@@ -143,7 +143,7 @@ McpToolset(
 )
 ```
 
-- **Two MCP instances:** read-only (Expedition + Navigator) and write-enabled (Surgeon only).
+- **Two flavors of MCP instance** (one stdio toolset per agent): read-only (`--readOnly`) for the root, Surveyors, Historian, and Navigator; write-enabled only for the Mapmaker (filtered to the atlas-authoring tools `create-collection`/`insert-many`/`create-index`) and the Surgeon (repairs, gated behind human approval). `tool_filter` is a client-side allowlist — the `--readOnly` flag is the server-side enforcement line.
 - **Per-agent `tool_filter`** keeps each agent's tool surface to 3–5 tools — less token bloat, least privilege.
 - Transport is **stdio** — the documented-stable path for ADK `MCPToolset` (avoids the known streamable-HTTP issue).
 
@@ -154,11 +154,11 @@ McpToolset(
 - `orders` (~12k docs): `price` string before 2024-03 cutoff (≈29%), double after; `status` case drift
 - `customers` (~5k docs): `user_id` (old) vs `userId` (new); `email` missing in 12%
 - `products` (~1k docs): `address`-style shape drift on `dimensions`
-- Prints the **ground-truth answers** (true 2025 revenue vs naive-sum revenue) for the demo script.
+- Prints the **ground-truth answers** (true vs naive-sum revenue, all-time and 2024) for the demo script. Note: because all string prices predate the 2024-03 boundary, the demo question is all-time revenue — a 2025-scoped question would touch no drifted documents.
 
 ## 7. Deployment
 
-- Local dev: `adk web` (ADK dev UI is the demo front end)
+- Local dev: `adk web agents` (ADK dev UI is the demo front end)
 - Hosted: `adk deploy cloud_run --with_ui` → public Cloud Run URL (hackathon requirement)
 - Config via env: `GOOGLE_API_KEY` (AI Studio) or Vertex project vars; `MDB_MCP_CONNECTION_STRING`
 
